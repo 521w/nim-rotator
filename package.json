@@ -1,0 +1,6 @@
+{
+  "name": "cloudflare-pages-nim-rotator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Pages Functions · 多 key 轮换 NVIDIA NIM Chat Completions"
+}

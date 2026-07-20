@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>nim-rotator · NVIDIA NIM 多 key 轮换代理</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 720px; margin: 50px auto; padding: 0 20px; color: #1a1a1a; line-height: 1.6; }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    h2 { font-size: 18px; margin-top: 32px; }
+    code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-size: 14px; }
+    pre { background: #f4f4f4; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+    blockquote { border-left: 3px solid #ddd; padding-left: 14px; color: #666; margin-left: 0; }
+    a { color: #1a73e8; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    hr { border: none; border-top: 1px solid #eee; margin: 32px 0; }
+  </style>
+</head>
+<body>
+  <h1>nim-rotator</h1>
+  <p>Cloudflare Pages 多 key 轮换代理 · 转 NVIDIA NIM <code>/v1/chat/completions</code></p>
+
+  <hr>
+
+  <h2>用法</h2>
+  <pre><code>export K="https://YOUR-PAGES-PROJ.pages.dev/v1"
+curl -s $K/chat/completions \
+  -H "Authorization: Bearer anything" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "meta/llama-3.3-70b-instruct",
+    "messages": [{"role":"user","content":"hello"}]
+  }'</code></pre>
+
+  <h2>Hermes config.yaml</h2>
+  <pre><code>providers:
+  - name: nim_cf_pages
+    type: openai
+    base_url: "https://YOUR-PROJ.pages.dev/v1"
+    api_key: "anything"
+    models:
+      - meta/llama-3.3-70b-instruct
+default_provider: nim_cf_pages
+default_model: meta/llama-3.3-70b-instruct</code></pre>
+
+  <h2>健康检查</h2>
+  <pre><code>curl https://YOUR-PROJ.pages.dev/health</code></pre>
+
+  <hr>
+
+  <h2>部署</h2>
+  <blockquote>
+    Pages 项目 root = 仓库根 · Functions 由 <code>functions/</code> 目录自动发现 · 无需 wrangler · 无需 npm install
+  </blockquote>
+
+  <h2>KV 配置</h2>
+  <ol>
+    <li>Cloudflare Dashboard → Pages → 选项目 → Settings → Functions → KV namespace bindings</li>
+    <li>新建 namespace 名字 <code>NIM_KEYS</code>,绑到 Production</li>
+    <li>从 Dashboard 进 KV → 编辑值,写三行:
+      <pre><code>key:1 → {"value":"nvapi-真实key1","cooldownUntil":0}
+key:2 → {"value":"nvapi-真实key2","cooldownUntil":0}
+key:3 → {"value":"nvapi-真实key3","cooldownUntil":0}</code></pre>
+    </li>
+  </ol>
+
+  <hr>
+
+  <h2>原理</h2>
+  <p>每个请求 · Pages Function 拉 KV 里所有 <code>key:*</code> → 跳过冷却中的 → 随机选一条 → 透传 NVIDIA NIM</p>
+  <p>撞到 429/402 · 把这条 key 的 <code>cooldownUntil</code> 写到 KV 默认 5 分钟后恢复 · 期间这条 key 不会被选</p>
+
+  <h2>限制</h2>
+  <ul>
+    <li>Cloudflare Pages 免费层 100k 请求/天 · 超出 503</li>
+    <li>不绑卡 · 0 元</li>
+    <li>只支持 <code>/v1/chat/completions</code> 和 <code>/v1/models</code> · 不做 embedding / rerank</li>
+    <li>Function cold start 100ms 左右 · 首请求慢点</li>
+  </ul>
+
+  <hr>
+
+  <p>github: <a href="https://github.com/521w/cloudflare-pages-nim-rotator">521w/cloudflare-pages-nim-rotator</a></p>
+</body>
+</html>
